@@ -1,0 +1,40 @@
+name: api
+services:
+  db:
+    image: mysql:8.0
+    env_file: .env
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ../volumes/mysql:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h localhost -u${MYSQL_USER} -p${MYSQL_ROOT_PASSWORD}",
+        ]
+      interval: 10s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+
+  payments_microservice:
+    build:
+      context: .
+      dockerfile: test.dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - MYSQL_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+    volumes:
+      - .:/api
+    depends_on:
+      db:
+        condition: service_healthy
