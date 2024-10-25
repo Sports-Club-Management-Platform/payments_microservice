@@ -1,4 +1,7 @@
 from contextlib import asynccontextmanager
+import aio_pika
+import asyncio
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette import status
@@ -8,11 +11,31 @@ from database import engine
 from routers import checkout
 
 
+RABBITMQ_URL = os.environ.get("RABBITMQ_URL")
+
+
 @asynccontextmanager
-async def lifespan(app):
-    # async stuff here
-    # for later
+async def lifespan(app: FastAPI):
+    # Connect to RabbitMQ
+    connection = await aio_pika.connect_robust(RABBITMQ_URL)
+    channel = await connection.channel()
+
+    async def rabbitmq_listener():
+        queue = await channel.declare_queue("your_queue_name", durable=True)
+        async with queue.iterator() as queue_iter:
+            async for message in queue_iter:
+                async with message.process():
+                    print("Received message:", message.body)
+                    # Process the message here
+
+    # Run RabbitMQ listener in the background
+    task = asyncio.create_task(rabbitmq_listener())
     yield
+    # Cleanup
+    await channel.close()
+    await connection.close()
+    task.cancel()
+
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI(
@@ -38,8 +61,13 @@ app.add_middleware(
 )
 
 
-@app.get("/health", tags=["healthcheck"], summary="Perform a Health Check",
-         response_description="Return HTTP Status Code 200 (OK)", status_code=status.HTTP_200_OK)
+@app.get(
+    "/health",
+    tags=["healthcheck"],
+    summary="Perform a Health Check",
+    response_description="Return HTTP Status Code 200 (OK)",
+    status_code=status.HTTP_200_OK,
+)
 def get_health():
     return {"status": "ok"}
 
