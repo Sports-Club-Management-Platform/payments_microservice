@@ -1,12 +1,19 @@
+import asyncio
 import json
 import os
+import sys
 import time
-
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from contextlib import asynccontextmanager
+import aio_pika
+from fastapi import APIRouter, status, Request, Depends, FastAPI
 import stripe
-from pydantic import BaseModel
-from starlette.responses import RedirectResponse, Response
+from starlette.responses import Response
 import logging
+from auth.auth import get_current_user_id
+from crud import crud
+from db.create_database import create_tables
+from db.database import get_db
+from aio_pika import Message
 
 router = APIRouter(
     tags=["Create checkout sessions"],
@@ -16,13 +23,47 @@ DOMAIN = os.getenv("DOMAIN")
 stripe.api_key = os.getenv("STRIPE_API_KEY")
 webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 expire_time = int(os.getenv("EXPIRE_TIME"))  # in seconds
-logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
-@router.post('/create-checkout-session')
-def create_checkout_session(price_id: str, quantity: int):
+RABBITMQ_URL = os.environ.get("RABBITMQ_URL")
+exchange = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global connection, channel, exchange, queue
+    create_tables()
+    # Connect to RabbitMQ
+    connection = await aio_pika.connect_robust(RABBITMQ_URL)
+    channel = await connection.channel()
+    exchange = await channel.declare_exchange("exchange", type=aio_pika.ExchangeType.TOPIC, durable=True)
+    queue = await channel.declare_queue("TICKETS", durable=True)
+    await queue.bind(exchange, routing_key="TICKETS")
+
+    # async def rabbitmq_listener():
+    #     async with queue.iterator() as queue_iter:
+    #         async for message in queue_iter:
+    #             async with message.process():
+    #                 print("Received message:", message.body)
+    #                 # Process the message here
+    #
+    # # Run RabbitMQ listener in the background
+    # task = asyncio.create_task(rabbitmq_listener())
+    yield
+    # Cleanup
+    await channel.close()
+    await connection.close()
+    # task.cancel()
+
+@router.post('/create-checkout-session', status_code=status.HTTP_200_OK)
+def create_checkout_session(price_id: str, quantity: int, user_id=Depends(get_current_user_id), db=Depends(get_db)):
     try:
+        logger.info("user mapping")
+        user_mapping = crud.create_user_mapping(db, user_id)
+        logger.info(user_mapping)
         checkout_session = stripe.checkout.Session.create(
             line_items=[
                 {
@@ -36,6 +77,7 @@ def create_checkout_session(price_id: str, quantity: int):
             success_url=DOMAIN + '/checkout-success',
             cancel_url=DOMAIN + '/checkout-canceled',
             expires_at=int(time.time() + expire_time),
+            client_reference_id=user_mapping.uuid,
         )
     except stripe.error.InvalidRequestError as e:
         logger.error(f"Invalid price ID: {price_id} - {e}")
@@ -44,12 +86,12 @@ def create_checkout_session(price_id: str, quantity: int):
         logger.error(e)
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return RedirectResponse(checkout_session.url, status_code=303)
+    return {"checkout_url": checkout_session.url}
 
 
 # webhooks - don't know why @app.webhooks is not working
 @router.post("/webhooks/checkout")
-async def webhooks(request: Request):
+async def webhooks(request: Request, db=Depends(get_db)):
     """
     When a new user subscribes to your service we'll send you a POST request with this
     data to the URL that you register for the event `new-subscription` in the dashboard.
@@ -63,7 +105,6 @@ async def webhooks(request: Request):
         event = stripe.Webhook.construct_event(
             payload, sig_header, webhook_secret
         )
-        logger.info(event)
     except ValueError as e:
         # Invalid payload
         return Response(status_code=status.HTTP_400_BAD_REQUEST)
@@ -74,12 +115,27 @@ async def webhooks(request: Request):
 
     # Handle the event
     if event.type == "checkout.session.completed":
-        print('Checkout session completed')
-        # post to queue
+        logger.info('Checkout session completed')
+        session = stripe.checkout.Session.retrieve(event.data.object.id, expand=['line_items'])
+        logger.info(session)
+        message_payload = {
+            "event": event.type,
+            "user_id": crud.get_user_mapping_by_uuid(db, session.client_reference_id).user_id,
+            "price_id": session.line_items.data[0].price.id,
+            "product_id": session.line_items.data[0].price.product,
+            "quantity": session.line_items.data[0].quantity,
+        }
+        logger.info(message_payload)
+        await exchange.publish(
+            routing_key="TICKETS",
+            message=Message(
+                body=json.dumps(message_payload).encode()
+            ),
+        )
     elif event.type == "checkout.session.expired":
-        print('Checkout session expired')
-        # post to queue
+        logger.info('Checkout session expired')
+
     else:
-        print('Unhandled event type {}'.format(event.type))
+        logger.info('Unhandled event type {}'.format(event.type))
 
     return Response(status_code=status.HTTP_200_OK)

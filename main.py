@@ -10,34 +10,7 @@ import models
 from db.create_database import create_tables
 from db.database import engine
 from routers import checkout
-
-
-RABBITMQ_URL = os.environ.get("RABBITMQ_URL")
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    create_tables()
-    # Connect to RabbitMQ
-    connection = await aio_pika.connect_robust(RABBITMQ_URL)
-    channel = await connection.channel()
-
-    async def rabbitmq_listener():
-        queue = await channel.declare_queue("your_queue_name", durable=True)
-        async with queue.iterator() as queue_iter:
-            async for message in queue_iter:
-                async with message.process():
-                    print("Received message:", message.body)
-                    # Process the message here
-
-    # Run RabbitMQ listener in the background
-    task = asyncio.create_task(rabbitmq_listener())
-    yield
-    # Cleanup
-    await channel.close()
-    await connection.close()
-    task.cancel()
-
+from routers.checkout import lifespan
 
 app = FastAPI(
     lifespan=lifespan,
@@ -50,7 +23,6 @@ app = FastAPI(
         "name": "ClubSync",
     },
     servers=[{"url": "http://localhost:8000", "description": "Local server"}],
-    webhooks={"new-subscription": {"url": "/webhooks/new-subscription"}},
 )
 
 # CORS setup
