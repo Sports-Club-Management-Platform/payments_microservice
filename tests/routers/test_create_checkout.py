@@ -45,7 +45,7 @@ def test_create_checkout_session_with_invalid_price_id(stripe_checkout_session_m
         allow_redirects=False
     )
     assert response.status_code == 404
-    assert response.text == f"Price id {invalid_price_id} not found"
+    assert response.text == f"Price id not found"
     assert stripe_checkout_session_mock.call_count == 0
 
 
