@@ -80,7 +80,7 @@ def create_checkout_session(price_id: str, quantity: int, user_id=Depends(get_cu
             client_reference_id=user_mapping.uuid,
         )
     except stripe.error.InvalidRequestError as e:
-        logger.error(f"Invalid price ID: {price_id} - {e}")
+        logger.error("Invalid price ID: %s - %s", price_id, e)
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=f"Price id {price_id} not found")
     except Exception as e:
         logger.error(e)
