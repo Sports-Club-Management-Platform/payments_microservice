@@ -1,20 +1,17 @@
 from contextlib import asynccontextmanager
+import aio_pika
+import asyncio
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette import status
 
 import models
-from database import engine
+from db.create_database import create_tables
+from db.database import engine
 from routers import checkout
+from routers.checkout import lifespan
 
-
-@asynccontextmanager
-async def lifespan(app):
-    # async stuff here
-    # for later
-    yield
-
-models.Base.metadata.create_all(bind=engine)
 app = FastAPI(
     lifespan=lifespan,
     title="ClubSync Payments_Microservice API",
@@ -38,8 +35,13 @@ app.add_middleware(
 )
 
 
-@app.get("/health", tags=["healthcheck"], summary="Perform a Health Check",
-         response_description="Return HTTP Status Code 200 (OK)", status_code=status.HTTP_200_OK)
+@app.get(
+    "/health",
+    tags=["healthcheck"],
+    summary="Perform a Health Check",
+    response_description="Return HTTP Status Code 200 (OK)",
+    status_code=status.HTTP_200_OK,
+)
 def get_health():
     return {"status": "ok"}
 
