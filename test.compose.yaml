@@ -1,4 +1,4 @@
-name: api
+name: payments_api
 services:
   db:
     image: mysql:8.0
@@ -9,7 +9,7 @@ services:
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "3309:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -28,7 +28,7 @@ services:
       context: .
       dockerfile: test.dockerfile
     ports:
-      - "8000:8000"
+      - "8003:8000"
     env_file:
       - .env
     environment:

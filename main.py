@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette import status
 
 import models
-from database import engine
+from db.create_database import create_tables
+from db.database import engine
 from routers import checkout
 
 
@@ -16,6 +17,7 @@ RABBITMQ_URL = os.environ.get("RABBITMQ_URL")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    create_tables()
     # Connect to RabbitMQ
     connection = await aio_pika.connect_robust(RABBITMQ_URL)
     channel = await connection.channel()
@@ -37,7 +39,6 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 
-models.Base.metadata.create_all(bind=engine)
 app = FastAPI(
     lifespan=lifespan,
     title="ClubSync Payments_Microservice API",
@@ -49,6 +50,7 @@ app = FastAPI(
         "name": "ClubSync",
     },
     servers=[{"url": "http://localhost:8000", "description": "Local server"}],
+    webhooks={"new-subscription": {"url": "/webhooks/new-subscription"}},
 )
 
 # CORS setup
