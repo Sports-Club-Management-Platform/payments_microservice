@@ -36,7 +36,7 @@ app.add_middleware(
 
 
 @app.get(
-    "/",
+    "/health",
     tags=["healthcheck"],
     summary="Perform a Health Check",
     response_description="Return HTTP Status Code 200 (OK)",
