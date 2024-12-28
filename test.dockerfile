@@ -2,7 +2,7 @@ FROM python:3.12-slim AS requirements-stage
 
 ENV PYTHONUNBUFFERED 1
 
-WORKDIR /api
+WORKDIR /payments_microservice
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libffi-dev libssl-dev && \
@@ -16,6 +16,6 @@ COPY . .
 
 RUN poetry install
 
-EXPOSE 8000
+EXPOSE 8003
 
-CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003", "--reload"]
