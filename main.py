@@ -22,7 +22,7 @@ app = FastAPI(
     contact={
         "name": "ClubSync",
     },
-    servers=[{"url": "http://localhost:8000", "description": "Local server"}],
+    root_path="/payments/v1/",
 )
 
 # CORS setup
