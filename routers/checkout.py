@@ -1,19 +1,22 @@
 import asyncio
 import json
+import logging
 import os
 import sys
 import time
 from contextlib import asynccontextmanager
+
 import aio_pika
-from fastapi import APIRouter, status, Request, Depends, FastAPI
 import stripe
+from aio_pika import Message
+from fastapi import APIRouter, Depends, FastAPI, Request, status
 from starlette.responses import Response
-import logging
+
 from auth.auth import get_current_user_id
 from crud import crud
+from crud.crud import create_ticket_stock, update_ticket_stock
 from db.create_database import create_tables
 from db.database import get_db
-from aio_pika import Message
 
 router = APIRouter(
     tags=["Create checkout sessions"],
@@ -43,15 +46,16 @@ async def lifespan(app: FastAPI):
     queue = await channel.declare_queue("TICKETS", durable=True)
     await queue.bind(exchange, routing_key="TICKETS")
 
-    # async def rabbitmq_listener():
-    #     async with queue.iterator() as queue_iter:
-    #         async for message in queue_iter:
-    #             async with message.process():
-    #                 print("Received message:", message.body)
-    #                 # Process the message here
-    #
-    # # Run RabbitMQ listener in the background
-    # task = asyncio.create_task(rabbitmq_listener())
+    async def rabbitmq_listener():
+        async with queue.iterator() as queue_iter:
+            async for message in queue_iter:
+                async with message.process():
+                    print("Received message:", message.body)
+                    # Process the message here
+                    await process_message(message.body)
+    
+    # Run RabbitMQ listener in the background
+    task = asyncio.create_task(rabbitmq_listener())
     yield
     # Cleanup
     await channel.close()
@@ -64,6 +68,9 @@ def create_checkout_session(price_id: str, quantity: int, user_id=Depends(get_cu
         logger.info("user mapping")
         user_mapping = crud.create_user_mapping(db, user_id)
         logger.info(user_mapping)
+
+        # Decrement stock function needs to be implemented here
+        
         checkout_session = stripe.checkout.Session.create(
             line_items=[
                 {
@@ -139,3 +146,25 @@ async def webhooks(request: Request, db=Depends(get_db)):
         logger.info('Unhandled event type {}'.format(event.type))
 
     return Response(status_code=status.HTTP_200_OK)
+
+
+async def process_message(body):
+    message = json.loads(body)
+    event = message.get("event")
+    if event == "ticket_created":
+        ticket_id = message.get("ticket_id")
+        stock = message.get("stock")
+        if ticket_id and stock is not None:
+            async with get_db() as db:
+                create_ticket_stock(db, ticket_id, stock)
+                logger.info(f"TicketStock created: ticket_id={ticket_id}, stock={stock}")
+    elif event == "ticket_stock_updated":
+        ticket_id = message.get("ticket_id")
+        stock = message.get("stock")
+        if ticket_id and stock is not None:
+            async with get_db() as db:
+                update_ticket_stock(db, ticket_id, stock)
+                logger.info(f"TicketStock updated: ticket_id={ticket_id}, stock={stock}")
+    else:
+        logger.info(f"Unhandled event: {event}")
+
