@@ -75,8 +75,14 @@ def get_stock_by_ticket_id(db: Session, ticket_id: int):
         raise HTTPException(status_code=404, detail="Ticket not found")
     return {"stock": db_ticket_stock.stock}
 
-def get_stock_by_price_id(db: Session, price_id: int):
+def get_stock_by_price_id(db: Session, price_id: str):
     db_ticket_stock = db.query(TicketStock).filter(TicketStock.stripe_price_id == price_id).first()
     if db_ticket_stock is None:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return {"stock": db_ticket_stock.stock}
+
+def get_stock_ticket_id_by_price_id(db:Session, price_id: str):
+    db_ticket_stock = db.query(TicketStock).filter(TicketStock.stripe_price_id == price_id).first()
+    if db_ticket_stock is None:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {"ticket_id": db_ticket_stock.ticket_id}

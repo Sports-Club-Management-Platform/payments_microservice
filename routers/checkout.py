@@ -14,7 +14,8 @@ from starlette.responses import Response
 
 from auth.auth import get_current_user_id
 from crud import crud
-from crud.crud import (create_ticket_stock, decrement_stock, increment_stock,
+from crud.crud import (create_ticket_stock, decrement_stock,
+                       get_stock_ticket_id_by_price_id, increment_stock,
                        update_ticket_stock)
 from db.create_database import create_tables
 from db.database import get_db
@@ -123,31 +124,40 @@ async def webhooks(request: Request, db=Depends(get_db)):
         logger.error('Error verifying webhook signature: {}'.format(str(e)))
         return Response(status_code=status.HTTP_400_BAD_REQUEST)
 
+    ticket = session.line_items.data[0]
+
     # Handle the event
     if event.type == "checkout.session.completed":
         logger.info('Checkout session completed')
         session = stripe.checkout.Session.retrieve(event.data.object.id, expand=['line_items'])
         logger.info(session)
-        message_payload = {
+        ticket_message_payload = {
             "event": event.type,
             "user_id": crud.get_user_mapping_by_uuid(db, session.client_reference_id).user_id,
-            "price_id": session.line_items.data[0].price.id,
-            "product_id": session.line_items.data[0].price.product,
-            "quantity": session.line_items.data[0].quantity,
+            "ticket_id": get_stock_ticket_id_by_price_id(db, ticket.price.id),
+            "quantity": ticket.quantity,
+            "total_price": session.amount_total,
+            "created_at": time.time(),
         }
-        logger.info(message_payload)
-        await exchange.publish(
-            routing_key="TICKETS",
-            message=Message(
-                body=json.dumps(message_payload).encode()
-            ),
-        )
+
+        email_message_payload = {
+            "user_name" : "????",   # get user info from user_auth.py
+            "ticket_name" : stripe.Price.retrieve(ticket.price.id, expand=['product']).product.name,
+            "ticket_price": session.amount_total,
+            "ticket_id": get_stock_ticket_id_by_price_id(db, ticket.price.id),
+            "to_email": "????",     # get user email from user_auth.py
+        }
+        
+        logger.info(ticket_message_payload)
+        await send_messages(ticket_message_payload, email_message_payload)
+
     elif event.type == "checkout.session.expired":
         logger.info('Checkout session expired')
         session = stripe.checkout.Session.retrieve(event.data.object.id, expand=['line_items'])
-        price_id = session.line_items.data[0].price.id
-        quantity = session.line_items.data[0].quantity
+        price_id = ticket.price.id
+        quantity = ticket.quantity
         increment_stock(db, price_id, quantity)
+
     else:
         logger.info('Unhandled event type {}'.format(event.type))
 
@@ -180,6 +190,20 @@ async def process_message(body):
                 db.close()
     else:
         logger.info(f"Unhandled event: {event}")
+
+async def send_messages(ticket_body, email_body):
+    await exchange.publish(
+        routing_key="TICKETS",
+        message=Message(
+            body=json.dumps(ticket_body).encode()
+        ),
+    )
+    await exchange.publish(
+        routing_key="EMAILS",
+        message=Message(
+            body=json.dumps(email_body).encode()
+        ),
+    )
 
 # # get tickets stocks for testing purposes
 # @router.get("/ticket-stocks")
