@@ -9,17 +9,17 @@ from contextlib import asynccontextmanager
 import aio_pika
 import stripe
 from aio_pika import Message
-from fastapi import APIRouter, Depends, FastAPI, Request, status
-from starlette.responses import Response
-
 from auth.auth import get_current_user_id
 from crud import crud
 from crud.crud import (create_ticket_stock, decrement_stock,
+                       get_stock_by_price_id, get_stock_by_ticket_id,
                        get_stock_ticket_id_by_price_id, increment_stock,
                        update_ticket_stock)
 from db.create_database import create_tables
 from db.database import get_db
+from fastapi import APIRouter, Depends, FastAPI, Request, status
 from models.models import TicketStock
+from starlette.responses import Response
 
 router = APIRouter(
     tags=["Create checkout sessions"],
@@ -162,6 +162,15 @@ async def webhooks(request: Request, db=Depends(get_db)):
         logger.info('Unhandled event type {}'.format(event.type))
 
     return Response(status_code=status.HTTP_200_OK)
+
+@router.get("/stock/{ticket_id}")
+def get_stock(ticket_id: int, db=Depends(get_db)):
+    try:
+        stock = get_stock_by_ticket_id(db, ticket_id)
+    except Exception as e:
+        logger.error(e)
+        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return stock
 
 
 async def process_message(body):
