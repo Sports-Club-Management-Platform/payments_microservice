@@ -14,4 +14,5 @@ class UserMapping(Base):
 class TicketStock(Base):
     __tablename__ = "ticket_stock"
     ticket_id = Column(Integer, primary_key=True)
+    stripe_price_id = Column(String(32), nullable=False, unique=True)
     stock = Column(Integer, nullable=False)
