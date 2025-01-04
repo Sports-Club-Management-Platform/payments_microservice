@@ -1,9 +1,10 @@
 import os
+
 import requests
+from auth.JWTBearer import JWKS, JWTAuthorizationCredentials, JWTBearer
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from starlette.status import HTTP_403_FORBIDDEN
-from auth.JWTBearer import JWKS, JWTBearer, JWTAuthorizationCredentials
 
 load_dotenv()
 

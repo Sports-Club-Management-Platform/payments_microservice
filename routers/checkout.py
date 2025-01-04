@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 import aio_pika
 import stripe
 from aio_pika import Message
-from auth.auth import get_current_user_id
+from auth.auth import get_current_user_email, get_current_user_id
 from crud import crud
 from crud.crud import (create_ticket_stock, decrement_stock,
                        get_stock_by_price_id, get_stock_by_ticket_id,
@@ -141,17 +141,9 @@ async def webhooks(request: Request, db=Depends(get_db)):
             "total_price": session.amount_total,
             "created_at": time.time(),
         }
-
-        email_message_payload = {
-            "user_name" : "????",   # get user info from user_auth.py
-            "ticket_name" : stripe.Price.retrieve(ticket.price.id, expand=['product']).product.name,
-            "ticket_price": session.amount_total,
-            "ticket_id": get_stock_ticket_id_by_price_id(db, ticket.price.id),
-            "to_email": "????",     # get user email from user_auth.py
-        }
         
         logger.info(ticket_message_payload)
-        await send_messages(ticket_message_payload, email_message_payload)
+        await send_message(ticket_message_payload)
 
     elif event.type == "checkout.session.expired":
         logger.info('Checkout session expired')
@@ -202,19 +194,14 @@ async def process_message(body):
     else:
         logger.info(f"Unhandled event: {event}")
 
-async def send_messages(ticket_body, email_body):
+async def send_message(ticket_body):
     await exchange.publish(
         routing_key="TICKETS",
         message=Message(
             body=json.dumps(ticket_body).encode()
         ),
     )
-    await exchange.publish(
-        routing_key="EMAILS",
-        message=Message(
-            body=json.dumps(email_body).encode()
-        ),
-    )
+
 
 # # get tickets stocks for testing purposes
 # @router.get("/ticket-stocks")

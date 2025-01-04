@@ -1,15 +1,16 @@
 import base64
 import json
-from typing import Dict, Optional, List
+from typing import Any, Dict, List, Optional
+
+from auth.user_auth import user_info_with_token
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwk
 from jose.utils import base64url_decode
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.status import HTTP_403_FORBIDDEN
-from auth.user_auth import user_info_with_token
 
 # Define the type for JWK
 JWK = Dict[str, str]
@@ -24,7 +25,7 @@ class JWKS(BaseModel):
 class JWTAuthorizationCredentials(BaseModel):
     jwt_token: str
     header: dict[str, str]
-    claims: dict[str, str]
+    claims: dict[str, Any]
     signature: str
     message: str
 
@@ -170,7 +171,7 @@ class JWTBearer(HTTPBearer):
             )
 
     def create_jwt_credentials(
-            self, jwt_token: str, decoded_header: dict, claims: dict
+        self, jwt_token: str, decoded_header: dict, claims: dict
     ) -> JWTAuthorizationCredentials:
         """
         Create a JWTAuthorizationCredentials object.
@@ -187,7 +188,6 @@ class JWTBearer(HTTPBearer):
 
         # Remove unnecessary fields from claims
         claims.pop("version", None)
-        claims.pop("cognito:groups", None)
 
         # Convert timestamps to strings
         for claim in ["auth_time", "iat", "exp"]:

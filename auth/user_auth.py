@@ -1,8 +1,8 @@
+import base64
 import os
 
 import boto3
 import requests
-import base64
 from dotenv import load_dotenv
 
 load_dotenv()
