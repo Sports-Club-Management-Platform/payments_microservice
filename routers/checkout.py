@@ -126,8 +126,6 @@ async def webhooks(request: Request, db=Depends(get_db)):
         logger.error('Error verifying webhook signature: {}'.format(str(e)))
         return Response(status_code=status.HTTP_400_BAD_REQUEST)
 
-    ticket = session.line_items.data[0]
-
     # Handle the event
     if event.type == "checkout.session.completed":
         logger.info('Checkout session completed')
@@ -136,8 +134,8 @@ async def webhooks(request: Request, db=Depends(get_db)):
         ticket_message_payload = {
             "event": event.type,
             "user_id": crud.get_user_mapping_by_uuid(db, session.client_reference_id).user_id,
-            "ticket_id": get_stock_ticket_id_by_price_id(db, ticket.price.id),
-            "quantity": ticket.quantity,
+            "ticket_id": get_stock_ticket_id_by_price_id(db, session.line_items.data[0].price.id),
+            "quantity": session.line_items.data[0].quantity,
             "total_price": session.amount_total,
             "created_at": time.time(),
         }
@@ -148,8 +146,8 @@ async def webhooks(request: Request, db=Depends(get_db)):
     elif event.type == "checkout.session.expired":
         logger.info('Checkout session expired')
         session = stripe.checkout.Session.retrieve(event.data.object.id, expand=['line_items'])
-        price_id = ticket.price.id
-        quantity = ticket.quantity
+        price_id = session.line_items.data[0].price.id
+        quantity = session.line_items.data[0].quantity
         increment_stock(db, price_id, quantity)
 
     else:
