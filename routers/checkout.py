@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 import aio_pika
 import stripe
 from aio_pika import Message
-from auth.auth import get_current_user_email, get_current_user_id
+from auth.auth import get_current_user_id
 from crud import crud
 from crud.crud import (create_ticket_stock, decrement_stock,
                        get_stock_by_price_id, get_stock_by_ticket_id,
