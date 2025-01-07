@@ -46,11 +46,17 @@ async def lifespan(app: FastAPI):
     connection = await aio_pika.connect_robust(RABBITMQ_URL)
     channel = await connection.channel()
     exchange = await channel.declare_exchange("exchange", type=aio_pika.ExchangeType.TOPIC, durable=True)
-    queue = await channel.declare_queue("TICKETS", durable=True)
-    await queue.bind(exchange, routing_key="TICKETS")
+
+    # queues
+    tickets_queue = await channel.declare_queue("TICKETS", durable=True)
+    payments_queue = await channel.declare_queue("PAYMENTS", durable=True)
+
+    # bind queues
+    await tickets_queue.bind(exchange, routing_key="tickets.messages")
+    await payments_queue.bind(exchange, routing_key="payments.messages")
 
     async def rabbitmq_listener():
-        async with queue.iterator() as queue_iter:
+        async with tickets_queue.iterator() as queue_iter:
             async for message in queue_iter:
                 async with message.process():
                     print("Received message:", message.body)
@@ -64,6 +70,14 @@ async def lifespan(app: FastAPI):
     await channel.close()
     await connection.close()
     # task.cancel()
+
+async def send_message(ticket_body):
+    await exchange.publish(
+        routing_key="payments.messages",
+        message=Message(
+            body=json.dumps(ticket_body).encode()
+        ),
+    )
 
 @router.post('/create-checkout-session', status_code=status.HTTP_200_OK)
 def create_checkout_session(price_id: str, quantity: int, user_id=Depends(get_current_user_id), db=Depends(get_db)):
@@ -191,14 +205,6 @@ async def process_message(body):
                 db.close()
     else:
         logger.info(f"Unhandled event: {event}")
-
-async def send_message(ticket_body):
-    await exchange.publish(
-        routing_key="TICKETS",
-        message=Message(
-            body=json.dumps(ticket_body).encode()
-        ),
-    )
 
 
 # # get tickets stocks for testing purposes

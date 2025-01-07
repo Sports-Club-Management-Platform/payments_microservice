@@ -42,7 +42,7 @@ def update_ticket_stock(db: Session, ticket_id: int, stock: int):
     return db_ticket_stock
 
 # Need to add function to decrement stock and other things
-def decrement_stock(db: Session, price_id: int, quantity: int):
+def decrement_stock(db: Session, price_id: str, quantity: int):
     db_ticket_stock = db.query(TicketStock).filter(TicketStock.stripe_price_id == price_id).first()
 
     if db_ticket_stock is None:
@@ -57,7 +57,7 @@ def decrement_stock(db: Session, price_id: int, quantity: int):
     db.refresh(db_ticket_stock)
     return db_ticket_stock
 
-def increment_stock(db: Session, price_id: int, quantity: int):
+def increment_stock(db: Session, price_id: str, quantity: int):
     db_ticket_stock = db.query(TicketStock).filter(TicketStock.stripe_price_id == price_id).first()
 
     if db_ticket_stock is None:
@@ -85,4 +85,4 @@ def get_stock_ticket_id_by_price_id(db:Session, price_id: str):
     db_ticket_stock = db.query(TicketStock).filter(TicketStock.stripe_price_id == price_id).first()
     if db_ticket_stock is None:
         raise HTTPException(status_code=404, detail="Ticket not found")
-    return {"ticket_id": db_ticket_stock.ticket_id}
+    return db_ticket_stock.ticket_id
