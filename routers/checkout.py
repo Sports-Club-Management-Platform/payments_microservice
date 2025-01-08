@@ -72,6 +72,7 @@ async def lifespan(app: FastAPI):
     # task.cancel()
 
 async def send_message(ticket_body):
+    logger.info(f"Sending message: {ticket_body} to payments.messages")
     await exchange.publish(
         routing_key="payments.messages",
         message=Message(
@@ -150,7 +151,7 @@ async def webhooks(request: Request, db=Depends(get_db)):
             "user_id": crud.get_user_mapping_by_uuid(db, session.client_reference_id).user_id,
             "ticket_id": get_stock_ticket_id_by_price_id(db, session.line_items.data[0].price.id),
             "quantity": session.line_items.data[0].quantity,
-            "total_price": session.amount_total,
+            "amount_subtotal": session.amount_subtotal,
             "created_at": time.time(),
         }
         
