@@ -5,6 +5,7 @@ import os
 import sys
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 import aio_pika
 import stripe
@@ -151,11 +152,10 @@ async def webhooks(request: Request, db=Depends(get_db)):
             "user_id": crud.get_user_mapping_by_uuid(db, session.client_reference_id).user_id,
             "ticket_id": get_stock_ticket_id_by_price_id(db, session.line_items.data[0].price.id),
             "quantity": session.line_items.data[0].quantity,
-            "amount_subtotal": session.amount_subtotal,
-            "created_at": time.time(),
+            "unit_amount": session.line_items.data[0].price.unit_amount / 100,
+            "created_at": str(datetime.now()),
         }
         
-        logger.info(ticket_message_payload)
         await send_message(ticket_message_payload)
 
     elif event.type == "checkout.session.expired":

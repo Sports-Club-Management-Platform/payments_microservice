@@ -1,8 +1,14 @@
+import logging
+import sys
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from models.models import TicketStock, UserMapping
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler(sys.stdout))
 
 def create_user_mapping(db: Session, user_id: str):
     db_user_mapping = UserMapping(user_id=user_id)
@@ -55,6 +61,7 @@ def decrement_stock(db: Session, price_id: str, quantity: int):
     
     db.commit()
     db.refresh(db_ticket_stock)
+    logger.info(f"Stock decremented by {quantity}: {db_ticket_stock.__dict__}")
     return db_ticket_stock
 
 def increment_stock(db: Session, price_id: str, quantity: int):
@@ -67,6 +74,7 @@ def increment_stock(db: Session, price_id: str, quantity: int):
 
     db.commit()
     db.refresh(db_ticket_stock)
+    logger.info(f"Stock incremented by {quantity}: {db_ticket_stock.__dict__}")
     return db_ticket_stock
 
 def get_stock_by_ticket_id(db: Session, ticket_id: int):
