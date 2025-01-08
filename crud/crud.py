@@ -52,13 +52,16 @@ def decrement_stock(db: Session, price_id: str, quantity: int):
     db_ticket_stock = db.query(TicketStock).filter(TicketStock.stripe_price_id == price_id).first()
 
     if db_ticket_stock is None:
+        logger.info(f"Ticket with stripe_price_id {price_id} not found.")
         raise HTTPException(status_code=404, detail="Ticket not found")
-    
+
+    logger.info(f"Decrementing stock by {quantity}: {db_ticket_stock.__dict__}")
     db_ticket_stock.stock -= quantity
 
     if db_ticket_stock.stock < 0:
+        logger.info(f"Couldn't decrement stock by {quantity}. Not enough stock.")
         raise HTTPException(status_code=400, detail="Not enough stock")
-    
+
     db.commit()
     db.refresh(db_ticket_stock)
     logger.info(f"Stock decremented by {quantity}: {db_ticket_stock.__dict__}")
@@ -68,8 +71,10 @@ def increment_stock(db: Session, price_id: str, quantity: int):
     db_ticket_stock = db.query(TicketStock).filter(TicketStock.stripe_price_id == price_id).first()
 
     if db_ticket_stock is None:
+        logger.info(f"Ticket with stripe_price_id {price_id} not found.")
         raise HTTPException(status_code=404, detail="Ticket not found")
-    
+
+    logger.info(f"Incrementing stock by {quantity}: {db_ticket_stock.__dict__}")
     db_ticket_stock.stock += quantity
 
     db.commit()

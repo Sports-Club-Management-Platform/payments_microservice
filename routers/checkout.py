@@ -19,7 +19,6 @@ from crud.crud import (create_ticket_stock, decrement_stock,
 from db.create_database import create_tables
 from db.database import get_db
 from fastapi import APIRouter, Depends, FastAPI, Request, status
-from models.models import TicketStock
 from starlette.responses import Response
 
 router = APIRouter(
@@ -83,14 +82,15 @@ async def send_message(ticket_body):
 
 @router.post('/create-checkout-session', status_code=status.HTTP_200_OK)
 def create_checkout_session(price_id: str, quantity: int, user_id=Depends(get_current_user_id), db=Depends(get_db)):
+
+    logger.info("user mapping")
+    user_mapping = crud.create_user_mapping(db, user_id)
+    logger.info(user_mapping)
+
+    # Decrement stock function needs to be implemented here
+    decrement_stock(db, price_id, quantity)
+
     try:
-        logger.info("user mapping")
-        user_mapping = crud.create_user_mapping(db, user_id)
-        logger.info(user_mapping)
-
-        # Decrement stock function needs to be implemented here
-        decrement_stock(db, price_id, quantity)
-
         checkout_session = stripe.checkout.Session.create(
             line_items=[
                 {
@@ -111,14 +111,14 @@ def create_checkout_session(price_id: str, quantity: int, user_id=Depends(get_cu
         increment_stock(db, price_id, quantity)
         return Response(status_code=status.HTTP_404_NOT_FOUND, content="Price id not found")
     except Exception as e:
-        logger.error(e)
+        logger.error(f"Exception: {e}")
         increment_stock(db, price_id, quantity)
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return {"checkout_url": checkout_session.url}
 
 
-# webhooks - don't know why @app.webhooks is not working
+# webhooks
 @router.post("/webhooks/checkout")
 async def webhooks(request: Request, db=Depends(get_db)):
     """
