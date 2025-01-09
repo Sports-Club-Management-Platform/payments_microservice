@@ -23,7 +23,6 @@ client = TestClient(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 user_mapping = UserMapping(uuid="123", user_id="456")
-auth = JWTBearer(jwks)
 
 @pytest.fixture(autouse=True)
 def override_auth():
