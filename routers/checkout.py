@@ -14,6 +14,8 @@ from crud import crud
 from db.create_database import create_tables
 from db.database import get_db
 from aio_pika import Message
+from auth.auth import jwks, get_current_user
+from auth.JWTBearer import JWTAuthorizationCredentials, JWTBearer
 
 router = APIRouter(
     tags=["Create checkout sessions"],
@@ -31,6 +33,8 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 RABBITMQ_URL = os.environ.get("RABBITMQ_URL")
 exchange = None
 
+
+auth = JWTBearer(jwks)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,7 +62,7 @@ async def lifespan(app: FastAPI):
     await connection.close()
     # task.cancel()
 
-@router.post('/create-checkout-session', status_code=status.HTTP_200_OK)
+@router.post('/create-checkout-session', status_code=status.HTTP_200_OK, dependencies=[Depends(auth)])
 def create_checkout_session(price_id: str, quantity: int, user_id=Depends(get_current_user_id), db=Depends(get_db)):
     try:
         logger.info("user mapping")
