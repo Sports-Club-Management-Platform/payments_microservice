@@ -13,8 +13,8 @@ from auth.auth import get_current_user, get_current_user_id, jwks
 from auth.JWTBearer import JWTAuthorizationCredentials, JWTBearer
 from db.database import get_db
 from main import app
-from models.models import UserMapping
-from routers.checkout import DOMAIN, auth, expire_time
+from models.models import TicketStock, UserMapping
+from routers.checkout import DOMAIN, auth, expire_time, process_message
 
 load_dotenv()
 client = TestClient(app)
@@ -50,7 +50,7 @@ def mock_auth():
 
 
 @patch("routers.checkout.stripe.checkout.Session.create")
-def test_create_checkout_session_with_invalid_price_id(stripe_checkout_session_mock):
+def test_create_checkout_session_with_invalid_price_id(stripe_checkout_session_mock, mock_db):
     app.dependency_overrides[auth] = lambda: JWTAuthorizationCredentials(
         jwt_token="token",
         header={"kid": "some_kid"},
@@ -99,7 +99,7 @@ def test_create_checkout_session_with_invalid_quantity(stripe_checkout_session_m
 @patch("routers.checkout.time.time", return_value=time.time())
 @patch("routers.checkout.stripe.checkout.Session.create", wraps=stripe.checkout.Session.create)
 def test_create_checkout_session_with_valid_price_id_and_quantity(stripe_checkout_session, time_mock,
-                                                                  user_mapping_mock):
+                                                                  user_mapping_mock, mock_db):
     app.dependency_overrides[auth] = lambda: JWTAuthorizationCredentials(
         jwt_token="token",
         header={"kid": "some_kid"},

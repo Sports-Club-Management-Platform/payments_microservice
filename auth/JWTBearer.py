@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.status import HTTP_403_FORBIDDEN
 
+from auth.user_auth import user_info_with_token
+
 # Define the type for JWK
 JWK = Dict[str, str]
 
