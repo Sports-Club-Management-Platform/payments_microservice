@@ -14,7 +14,6 @@ from sqlalchemy import orm
 from crud.crud import get_stock_ticket_id_by_price_id
 from db.database import get_db
 from main import app
-from routers.checkout import webhook_secret
 
 load_dotenv()
 client = TestClient(app)
@@ -64,7 +63,7 @@ def test_call_webhook_with_invalid_signature():
 def test_webhook_checkout_with_value_error(webhook_construct_event_mock):
     response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
     assert response.status_code == 400
-    webhook_construct_event_mock.assert_called_once_with(b"", "valid", webhook_secret)
+    webhook_construct_event_mock.assert_called_once_with(b"", "valid")
     assert response.text == ""
 
 @patch("routers.checkout.stripe.checkout.Session.retrieve", return_value=session)
@@ -72,7 +71,7 @@ def test_webhook_checkout_with_value_error(webhook_construct_event_mock):
 def test_webhook_checkout_expired_with_valid_signature(webhook_construct_event_mock, session_retrieve_mock):
     response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
     assert response.status_code == 200
-    webhook_construct_event_mock.assert_called_once_with(b"", "valid", webhook_secret)
+    webhook_construct_event_mock.assert_called_once_with(b"", "valid")
     session_retrieve_mock.assert_called_once_with(checkout_session_expired.data.object.id, expand=['line_items'])
     assert response.text == ""
 
@@ -94,7 +93,7 @@ def test_webhook_checkout_completed_with_valid_signature(
         response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
         assert response.status_code == 200
         assert response.text == ""
-        webhook_construct_event_mock.assert_called_once_with(b"", "valid", webhook_secret)
+        webhook_construct_event_mock.assert_called_once_with(b"", "valid")
         session_retrieve_mock.assert_called_once_with(checkout_session_completed.data.object.id, expand=['line_items'])
         get_user_mapping_by_uuid_mock.assert_called_once_with(mock_db, user_mapping.uuid)
         get_stock_ticket_id_by_price_id_mock.assert_called_once_with(mock_db, session.line_items.data[0].price.id)

@@ -29,7 +29,6 @@ router = APIRouter(
 )
 DOMAIN = os.getenv("DOMAIN")
 stripe.api_key = os.getenv("STRIPE_API_KEY")
-webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 expire_time = int(os.getenv("EXPIRE_TIME"))  # in seconds
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -136,7 +135,7 @@ async def webhooks(request: Request, db=Depends(get_db)):
 
     try:
         event = stripe.Webhook.construct_event(
-            payload, sig_header, webhook_secret
+            payload, sig_header
         )
     except ValueError as e:
         # Invalid payload
