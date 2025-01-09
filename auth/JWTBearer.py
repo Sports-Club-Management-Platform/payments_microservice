@@ -1,6 +1,6 @@
 import base64
 import json
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -24,7 +24,7 @@ class JWKS(BaseModel):
 class JWTAuthorizationCredentials(BaseModel):
     jwt_token: str
     header: dict[str, str]
-    claims: dict[str, str]
+    claims: dict[str, Any]
     signature: str
     message: str
 
@@ -170,7 +170,7 @@ class JWTBearer(HTTPBearer):
             )
 
     def create_jwt_credentials(
-            self, jwt_token: str, decoded_header: dict, claims: dict
+        self, jwt_token: str, decoded_header: dict, claims: dict
     ) -> JWTAuthorizationCredentials:
         """
         Create a JWTAuthorizationCredentials object.
@@ -187,7 +187,6 @@ class JWTBearer(HTTPBearer):
 
         # Remove unnecessary fields from claims
         claims.pop("version", None)
-        claims.pop("cognito:groups", None)
 
         # Convert timestamps to strings
         for claim in ["auth_time", "iat", "exp"]:

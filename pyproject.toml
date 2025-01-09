@@ -1,9 +1,18 @@
 [tool.poetry]
-name = "ticket-microservice"
+name = "payments_microservice"
 version = "0.1.0"
 description = ""
 authors = ["AlexandreCotorobai <alexandrecotorobai@gmail.com>"]
 readme = "README.md"
+
+packages = [
+    { include = "crud" },
+    { include = "auth" },
+    { include = "db" },
+    { include = "models" },
+    { include = "routers" },
+    { include = "tests" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.10.12"
