@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from unittest.mock import MagicMock, patch
@@ -12,7 +13,7 @@ from auth.auth import get_current_user_id
 from db.database import get_db
 from main import app
 from models.models import TicketStock, UserMapping
-from routers.checkout import DOMAIN, expire_time
+from routers.checkout import DOMAIN, expire_time, process_message
 
 load_dotenv()
 client = TestClient(app)
@@ -110,3 +111,48 @@ def test_create_checkout_session_with_exception(stripe_checkout_session_mock):
     logger.info(stripe_checkout_session_mock.call_count)
     assert response.status_code == 500
     assert stripe_checkout_session_mock.call_count == 1
+
+@patch("routers.checkout.create_ticket_stock")
+@patch("routers.checkout.get_db")
+@pytest.mark.asyncio
+async def test_process_message_ticket_created(get_db_mock, create_ticket_stock_mock, mock_db):
+    get_db_mock.return_value = iter([mock_db])
+    message = {
+        "event": "ticket_created",
+        "ticket_id": 1,
+        "stripe_price_id": "price_123",
+        "stock": 100
+    }
+    body = json.dumps(message)
+    
+    await process_message(body)
+    
+    create_ticket_stock_mock.assert_called_once_with(mock_db, 1, "price_123", 100)
+
+@patch("routers.checkout.update_ticket_stock")
+@patch("routers.checkout.get_db")
+@pytest.mark.asyncio
+async def test_process_message_ticket_stock_updated(get_db_mock, update_ticket_stock_mock, mock_db):
+    get_db_mock.return_value = iter([mock_db])
+    message = {
+        "event": "ticket_stock_updated",
+        "ticket_id": 1,
+        "stock": 50
+    }
+    body = json.dumps(message)
+    
+    await process_message(body)
+    
+    update_ticket_stock_mock.assert_called_once_with(mock_db, 1, 50)
+
+@patch("routers.checkout.logger.info")
+@pytest.mark.asyncio
+async def test_process_message_unhandled_event(logger_info_mock):
+    message = {
+        "event": "unhandled_event",
+    }
+    body = json.dumps(message)
+    
+    await process_message(body)
+    
+    logger_info_mock.assert_called_with("Unhandled event: unhandled_event")
