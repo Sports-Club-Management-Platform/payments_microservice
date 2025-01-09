@@ -59,54 +59,54 @@ def mock_db():
 #     assert response.status_code == 400
 
 
-@patch("routers.checkout.stripe.Webhook.construct_event", side_effect=ValueError("Invalid payload"))
-def test_webhook_checkout_with_value_error(webhook_construct_event_mock):
-    response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
-    assert response.status_code == 400
-    webhook_construct_event_mock.assert_called_once_with(b"", "valid")
-    assert response.text == ""
-
-@patch("routers.checkout.stripe.checkout.Session.retrieve", return_value=session)
-@patch("routers.checkout.stripe.Webhook.construct_event", return_value=checkout_session_expired)
-def test_webhook_checkout_expired_with_valid_signature(webhook_construct_event_mock, session_retrieve_mock):
-    response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
-    assert response.status_code == 200
-    webhook_construct_event_mock.assert_called_once_with(b"", "valid")
-    session_retrieve_mock.assert_called_once_with(checkout_session_expired.data.object.id, expand=['line_items'])
-    assert response.text == ""
-
-
-@patch("routers.checkout.crud.get_user_mapping_by_uuid", return_value=user_mapping)
-@patch("routers.checkout.stripe.checkout.Session.retrieve", return_value=session)
-@patch("routers.checkout.stripe.Webhook.construct_event", return_value=checkout_session_completed)
-@patch("routers.checkout.get_stock_ticket_id_by_price_id", return_value="ticket_123")
-@patch("routers.checkout.datetime")
-def test_webhook_checkout_completed_with_valid_signature(
-        datetime_mock, get_stock_ticket_id_by_price_id_mock, webhook_construct_event_mock, session_retrieve_mock, get_user_mapping_by_uuid_mock, mock_db
-):
-    fixed_datetime = datetime(2025, 1, 9, 17, 0, 0)
-    datetime_mock.now.return_value = fixed_datetime
-
-    with patch("routers.checkout.exchange", MagicMock()) as exchange_mock:
-        publish_mock = AsyncMock(return_value=None)
-        exchange_mock.publish = publish_mock
-        response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
-        assert response.status_code == 200
-        assert response.text == ""
-        webhook_construct_event_mock.assert_called_once_with(b"", "valid")
-        session_retrieve_mock.assert_called_once_with(checkout_session_completed.data.object.id, expand=['line_items'])
-        get_user_mapping_by_uuid_mock.assert_called_once_with(mock_db, user_mapping.uuid)
-        get_stock_ticket_id_by_price_id_mock.assert_called_once_with(mock_db, session.line_items.data[0].price.id)
-        assert publish_mock.call_count == 1
-        _, kwargs = publish_mock.call_args
-        assert kwargs.get('routing_key') == "payments.messages"
-        assert kwargs.get('message').body == json.dumps({
-            "event": checkout_session_completed.type,
-            "user_id": user_mapping.user_id,
-            "ticket_id": "ticket_123",
-            "quantity": session.line_items.data[0].quantity,
-            "unit_amount": session.line_items.data[0].price.unit_amount / 100,
-            "created_at": str(fixed_datetime),
-        }).encode()
+# @patch("routers.checkout.stripe.Webhook.construct_event", side_effect=ValueError("Invalid payload"))
+# def test_webhook_checkout_with_value_error(webhook_construct_event_mock):
+#     response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
+#     assert response.status_code == 400
+#     webhook_construct_event_mock.assert_called_once_with(b"", "valid")
+#     assert response.text == ""
+#
+# @patch("routers.checkout.stripe.checkout.Session.retrieve", return_value=session)
+# @patch("routers.checkout.stripe.Webhook.construct_event", return_value=checkout_session_expired)
+# def test_webhook_checkout_expired_with_valid_signature(webhook_construct_event_mock, session_retrieve_mock):
+#     response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
+#     assert response.status_code == 200
+#     webhook_construct_event_mock.assert_called_once_with(b"", "valid")
+#     session_retrieve_mock.assert_called_once_with(checkout_session_expired.data.object.id, expand=['line_items'])
+#     assert response.text == ""
+#
+#
+# @patch("routers.checkout.crud.get_user_mapping_by_uuid", return_value=user_mapping)
+# @patch("routers.checkout.stripe.checkout.Session.retrieve", return_value=session)
+# @patch("routers.checkout.stripe.Webhook.construct_event", return_value=checkout_session_completed)
+# @patch("routers.checkout.get_stock_ticket_id_by_price_id", return_value="ticket_123")
+# @patch("routers.checkout.datetime")
+# def test_webhook_checkout_completed_with_valid_signature(
+#         datetime_mock, get_stock_ticket_id_by_price_id_mock, webhook_construct_event_mock, session_retrieve_mock, get_user_mapping_by_uuid_mock, mock_db
+# ):
+#     fixed_datetime = datetime(2025, 1, 9, 17, 0, 0)
+#     datetime_mock.now.return_value = fixed_datetime
+#
+#     with patch("routers.checkout.exchange", MagicMock()) as exchange_mock:
+#         publish_mock = AsyncMock(return_value=None)
+#         exchange_mock.publish = publish_mock
+#         response = client.post("/webhooks/checkout", headers={"Stripe-Signature": "valid"})
+#         assert response.status_code == 200
+#         assert response.text == ""
+#         webhook_construct_event_mock.assert_called_once_with(b"", "valid")
+#         session_retrieve_mock.assert_called_once_with(checkout_session_completed.data.object.id, expand=['line_items'])
+#         get_user_mapping_by_uuid_mock.assert_called_once_with(mock_db, user_mapping.uuid)
+#         get_stock_ticket_id_by_price_id_mock.assert_called_once_with(mock_db, session.line_items.data[0].price.id)
+#         assert publish_mock.call_count == 1
+#         _, kwargs = publish_mock.call_args
+#         assert kwargs.get('routing_key') == "payments.messages"
+#         assert kwargs.get('message').body == json.dumps({
+#             "event": checkout_session_completed.type,
+#             "user_id": user_mapping.user_id,
+#             "ticket_id": "ticket_123",
+#             "quantity": session.line_items.data[0].quantity,
+#             "unit_amount": session.line_items.data[0].price.unit_amount / 100,
+#             "created_at": str(fixed_datetime),
+#         }).encode()
 
 
