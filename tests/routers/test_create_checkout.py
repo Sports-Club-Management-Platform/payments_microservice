@@ -1,17 +1,17 @@
 import logging
 import time
+from unittest.mock import MagicMock, patch
 
 import pytest
 import stripe
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
 from sqlalchemy.orm import Session
 
 from auth.auth import get_current_user_id
 from db.database import get_db
 from main import app
-from models.models import UserMapping
+from models.models import TicketStock, UserMapping
 from routers.checkout import DOMAIN, expire_time
 
 load_dotenv()
@@ -37,9 +37,14 @@ def mock_auth():
 
 
 @patch("routers.checkout.stripe.checkout.Session.create")
-def test_create_checkout_session_with_invalid_price_id(stripe_checkout_session_mock):
+def test_create_checkout_session_with_invalid_price_id(stripe_checkout_session_mock, mock_db):
     invalid_price_id = "pr_123"
     valid_quantity = "1"
+
+    db_ticket_stock = MagicMock(spec=TicketStock)
+    db_ticket_stock.stock = 100
+    mock_db.query.return_value.filter.return_value.first.return_value = db_ticket_stock
+
     response = client.post(
         f"/create-checkout-session?price_id={invalid_price_id}&quantity={valid_quantity}",
         allow_redirects=False
@@ -65,9 +70,14 @@ def test_create_checkout_session_with_invalid_quantity(stripe_checkout_session_m
 @patch("routers.checkout.time.time", return_value=time.time())
 @patch("routers.checkout.stripe.checkout.Session.create", wraps=stripe.checkout.Session.create)
 def test_create_checkout_session_with_valid_price_id_and_quantity(stripe_checkout_session, time_mock,
-                                                                  user_mapping_mock):
+                                                                  user_mapping_mock, mock_db):
     valid_price_id = "price_1QBvVfJo4ha2Zj4nO3F0YLFr"
     valid_quantity = "2"
+
+    db_ticket_stock = MagicMock(spec=TicketStock)
+    db_ticket_stock.stock = 100
+    mock_db.query.return_value.filter.return_value.first.return_value = db_ticket_stock
+
     response = client.post(
         f"/create-checkout-session?price_id={valid_price_id}&quantity={valid_quantity}",
         allow_redirects=False
