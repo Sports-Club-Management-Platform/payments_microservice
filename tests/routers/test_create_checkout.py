@@ -15,6 +15,7 @@ from models.models import UserMapping
 from routers.checkout import DOMAIN, expire_time
 from auth.auth import jwks, get_current_user
 from auth.JWTBearer import JWTAuthorizationCredentials, JWTBearer
+from routers.checkout import auth
 
 load_dotenv()
 client = TestClient(app)
