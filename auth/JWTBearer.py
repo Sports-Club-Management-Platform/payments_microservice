@@ -2,7 +2,6 @@ import base64
 import json
 from typing import Any, Dict, List, Optional
 
-from auth.user_auth import user_info_with_token
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

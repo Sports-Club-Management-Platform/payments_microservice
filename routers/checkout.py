@@ -10,7 +10,9 @@ from datetime import datetime
 import aio_pika
 import stripe
 from aio_pika import Message
-from auth.auth import get_current_user_id
+
+from auth.auth import get_current_user, get_current_user_id, jwks
+from auth.JWTBearer import JWTAuthorizationCredentials, JWTBearer
 from crud import crud
 from crud.crud import (create_ticket_stock, decrement_stock,
                        get_stock_by_price_id, get_stock_by_ticket_id,
@@ -18,8 +20,6 @@ from crud.crud import (create_ticket_stock, decrement_stock,
                        update_ticket_stock)
 from db.create_database import create_tables
 from db.database import get_db
-from fastapi import APIRouter, Depends, FastAPI, Request, status
-from starlette.responses import Response
 
 router = APIRouter(
     tags=["Create checkout sessions"],
@@ -37,6 +37,8 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 RABBITMQ_URL = os.environ.get("RABBITMQ_URL")
 exchange = None
 
+
+auth = JWTBearer(jwks)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -71,16 +73,7 @@ async def lifespan(app: FastAPI):
     await connection.close()
     # task.cancel()
 
-async def send_message(ticket_body):
-    logger.info(f"Sending message: {ticket_body} to payments.messages")
-    await exchange.publish(
-        routing_key="payments.messages",
-        message=Message(
-            body=json.dumps(ticket_body).encode()
-        ),
-    )
-
-@router.post('/create-checkout-session', status_code=status.HTTP_200_OK)
+@router.post('/create-checkout-session', status_code=status.HTTP_200_OK, dependencies=[Depends(auth)])
 def create_checkout_session(price_id: str, quantity: int, user_id=Depends(get_current_user_id), db=Depends(get_db)):
 
     logger.info("user mapping")
