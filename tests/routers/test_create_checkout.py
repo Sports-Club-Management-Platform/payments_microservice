@@ -50,8 +50,9 @@ def mock_auth():
     app.dependency_overrides[get_current_user_id] = lambda: auth
     yield auth
 
-@pytest.fixture(autouse=True)
-def override_auth():
+
+@patch("routers.checkout.stripe.checkout.Session.create")
+def test_create_checkout_session_with_invalid_price_id(stripe_checkout_session_mock):
     app.dependency_overrides[auth] = lambda: JWTAuthorizationCredentials(
         jwt_token="token",
         header={"kid": "some_kid"},
@@ -59,12 +60,6 @@ def override_auth():
         signature="signature",
         message="message",
     )
-    yield
-    app.dependency_overrides.pop(auth, None)  # Cleanup after each test
-
-
-@patch("routers.checkout.stripe.checkout.Session.create")
-def test_create_checkout_session_with_invalid_price_id(stripe_checkout_session_mock):
     headers = {"Authorization": "Bearer token"}
     invalid_price_id = "pr_123"
     valid_quantity = "1"
@@ -79,6 +74,13 @@ def test_create_checkout_session_with_invalid_price_id(stripe_checkout_session_m
 
 @patch("routers.checkout.stripe.checkout.Session.create")
 def test_create_checkout_session_with_invalid_quantity(stripe_checkout_session_mock):
+    app.dependency_overrides[auth] = lambda: JWTAuthorizationCredentials(
+        jwt_token="token",
+        header={"kid": "some_kid"},
+        claims={"sub": "user_id"},
+        signature="signature",
+        message="message",
+    )
     headers = {"Authorization": "Bearer token"}
     valid_price_id = "price_1QBvVfJo4ha2Zj4nO3F0YLFr"
     invalid_quantity = "invalid"
@@ -95,6 +97,13 @@ def test_create_checkout_session_with_invalid_quantity(stripe_checkout_session_m
 @patch("routers.checkout.stripe.checkout.Session.create", wraps=stripe.checkout.Session.create)
 def test_create_checkout_session_with_valid_price_id_and_quantity(stripe_checkout_session, time_mock,
                                                                   user_mapping_mock):
+    app.dependency_overrides[auth] = lambda: JWTAuthorizationCredentials(
+        jwt_token="token",
+        header={"kid": "some_kid"},
+        claims={"sub": "user_id"},
+        signature="signature",
+        message="message",
+    )
     headers = {"Authorization": "Bearer token"}
     valid_price_id = "price_1QBvVfJo4ha2Zj4nO3F0YLFr"
     valid_quantity = "2"
@@ -121,6 +130,13 @@ def test_create_checkout_session_with_valid_price_id_and_quantity(stripe_checkou
 
 @patch("routers.checkout.stripe.checkout.Session.create", side_effect=Exception("Stripe error"))
 def test_create_checkout_session_with_exception(stripe_checkout_session_mock):
+    app.dependency_overrides[auth] = lambda: JWTAuthorizationCredentials(
+        jwt_token="token",
+        header={"kid": "some_kid"},
+        claims={"sub": "user_id"},
+        signature="signature",
+        message="message",
+    )
     headers = {"Authorization": "Bearer token"}
 
     valid_price_id = "price_1QBvVfJo4ha2Zj4nO3F0YLFr"
