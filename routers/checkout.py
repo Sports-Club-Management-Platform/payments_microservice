@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
         async with tickets_queue.iterator() as queue_iter:
             async for message in queue_iter:
                 async with message.process():
-                    print("Received message:", message.body)
+                    logger.info(f"Received message: {message.body}")
                     # Process the message here
                     await process_message(message.body)
     
