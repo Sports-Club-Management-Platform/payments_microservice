@@ -134,8 +134,8 @@ async def webhooks(request: Request, db=Depends(get_db)):
     logger.info(payload)
 
     try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header
+        event = stripe.Event.construct_from(
+            json.loads(payload), sig_header
         )
     except ValueError as e:
         # Invalid payload
