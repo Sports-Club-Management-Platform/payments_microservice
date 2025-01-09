@@ -1,9 +1,18 @@
 [tool.poetry]
-name = "ticket-microservice"
+name = "payments_microservice"
 version = "0.1.0"
 description = ""
 authors = ["AlexandreCotorobai <alexandrecotorobai@gmail.com>"]
 readme = "README.md"
+
+packages = [
+    { include = "crud" },
+    { include = "auth" },
+    { include = "db" },
+    { include = "models" },
+    { include = "routers" },
+    { include = "tests" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.10.12"
@@ -22,11 +31,15 @@ tox = "^4.21.2"
 testcontainers = "^4.8.1"
 aio-pika = "^9.4.3"
 stripe = "^11.1.1"
+pytest-asyncio = "^0.25.0"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.6.2"
 pytest-cov = "^5.0.0"
 pytest = "^8.3.3"
+
+[tool.pytest.ini_options]
+pythonpath = "."
 
 [build-system]
 requires = ["poetry-core"]
