@@ -35,3 +35,19 @@ async def get_current_user(
         return {"username": username, "groups": groups}
     except KeyError:
         HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Username missing")
+
+
+async def get_current_user_id(
+        credentials: JWTAuthorizationCredentials = Depends(auth),
+) -> str:
+    """
+    Get the current user from the JWT token.
+
+    :param credentials: JWTAuthorizationCredentials object.
+    :return: sub of the user.
+    """
+
+    try:
+        return credentials.claims["sub"]
+    except KeyError:
+        HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Username missing")
